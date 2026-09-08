@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod incremental;
 mod live;
 mod parser;
 mod wcl;
@@ -27,6 +28,10 @@ struct UploadArgs {
     guild_id: Option<i64>,
     #[serde(default)]
     game: String,
+    #[serde(default)]
+    incremental: bool,
+    #[serde(default)]
+    checkpoint: Option<incremental::Checkpoint>,
 }
 
 #[derive(Serialize)]
@@ -307,6 +312,12 @@ fn set_titlebar_theme(window: tauri::WebviewWindow, dark: bool) {
     let _ = (window, dark);
 }
 
+#[tauri::command]
+async fn get_log_state(path: String) -> Result<incremental::Checkpoint, String> {
+    tokio::task::spawn_blocking(move || incremental::snapshot(std::path::Path::new(&path)))
+        .await.map_err(|e| e.to_string())?.map_err(|e| format!("{e:#}"))
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -329,6 +340,7 @@ fn main() {
             app_version,
             pick_log_file,
             file_info,
+            get_log_state,
             open_url,
             fetch_guilds,
             start_upload,
@@ -364,9 +376,17 @@ async fn run_upload(app: &AppHandle, args: UploadArgs) -> Result<()> {
         .to_string();
 
     emit_progress(app, "read", "Reading log file...", 1);
-    let raw = tokio::fs::read_to_string(&log_path)
-        .await
-        .with_context(|| format!("reading {}", log_path.display()))?;
+    let (raw, checkpoint) = if args.incremental {
+        let path = log_path.clone();
+        let previous = args.checkpoint.clone();
+        let (raw, checkpoint, reset) = tokio::task::spawn_blocking(move ||
+            incremental::read(&path, previous.as_ref())).await??;
+        if reset { emit_progress(app, "read", "Log changed; starting from the beginning.", 1); }
+        (raw, Some(checkpoint))
+    } else {
+        (tokio::fs::read_to_string(&log_path).await
+            .with_context(|| format!("reading {}", log_path.display()))?, None)
+    };
     let all_lines: Vec<String> = raw
         .lines()
         .map(|s| s.to_string())
@@ -505,7 +525,7 @@ async fn run_upload(app: &AppHandle, args: UploadArgs) -> Result<()> {
         Some(code) => {
             session.terminate_report(&code).await?;
             let url = session.report_url(&code);
-            let _ = app.emit("upload:done", json!({"url": url, "code": code}));
+            let _ = app.emit("upload:done", json!({"url": url, "code": code, "checkpoint": checkpoint}));
             Ok(())
         }
         None => Err(anyhow!("No fights found in log file.")),

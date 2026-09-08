@@ -886,6 +886,14 @@
                 <div class="fileinfo" id="fileinfo"></div>
                 <input type="file" id="logfile" accept=".txt" />
               </div>
+              <div id="incrementalFields" style="display: none">
+                <label class="checkline"><input type="checkbox" id="incrementalUpload" />
+                  <span>Only upload entries added since the last successful upload</span></label>
+                <p style="font-size: 0.75rem; margin: 10px 0" id="incrementalStatus"></p>
+                <button type="button" class="copy-btn" id="startFromNowBtn">Start from now</button>
+                <button type="button" class="copy-btn" id="resetPositionBtn">Reset</button>
+                <p style="font-size: 0.7rem; margin-top: 8px">Upload after the dungeon or fight ends. Each upload creates a new report.</p>
+              </div>
             </div>
 
             <div class="field" id="liveFields" style="display: none">
@@ -1296,6 +1304,8 @@
 
       function applyGame(id) {
         currentGame = GAMES[id] ? id : "warcraft";
+        document.getElementById("incrementalFields").style.display =
+          isTauri && currentGame === "warcraft" ? "block" : "none";
         localStorage.setItem(GAME_KEY, currentGame);
         const g = GAMES[currentGame];
         gamePickerLabel.textContent = g.name;
@@ -1333,6 +1343,58 @@
       const dz = document.getElementById("dropzone");
       const fi = document.getElementById("logfile");
       const fileinfo = document.getElementById("fileinfo");
+
+      const incrementalUpload = document.getElementById("incrementalUpload");
+      const incrementalStatus = document.getElementById("incrementalStatus");
+      const startFromNowBtn = document.getElementById("startFromNowBtn");
+      const resetPositionBtn = document.getElementById("resetPositionBtn");
+      const incrementalKey = "combatlog_incremental_upload_v2";
+      let incrementalBusy = false;
+      let incrementalState;
+      try { incrementalState = JSON.parse(localStorage.getItem(incrementalKey)); } catch {}
+      if (!incrementalState || typeof incrementalState.checkpoints !== "object" || !incrementalState.checkpoints)
+        incrementalState = { enabled: false, checkpoints: {} };
+      incrementalUpload.checked = !!incrementalState.enabled;
+      function checkpointFor(path) {
+        const cp = Object.hasOwn(incrementalState.checkpoints, path) ? incrementalState.checkpoints[path] : null;
+        return cp && Number.isSafeInteger(cp.offset) && cp.offset >= 0 &&
+          typeof cp.fingerprint === "string" && typeof cp.boundary === "string" ? cp : null;
+      }
+      function updateIncrementalUI() {
+        const cp = selected && checkpointFor(selected.path);
+        incrementalUpload.disabled = incrementalBusy;
+        startFromNowBtn.disabled = incrementalBusy || !selected;
+        resetPositionBtn.disabled = incrementalBusy || !cp;
+        incrementalStatus.textContent = !selected ? "Select a log file first" :
+          cp ? "Saved position: " + fmtSize(cp.offset) : "First upload includes the whole file";
+      }
+      function persistIncremental() {
+        localStorage.setItem(incrementalKey, JSON.stringify(incrementalState));
+        updateIncrementalUI();
+      }
+      incrementalUpload.addEventListener("change", () => {
+        incrementalState.enabled = incrementalUpload.checked;
+        try { persistIncremental(); } catch (err) { showError(String(err)); }
+      });
+      startFromNowBtn.addEventListener("click", async () => {
+        if (!selected || incrementalBusy) return;
+        const path = selected.path;
+        incrementalBusy = true; updateIncrementalUI();
+        try {
+          const cp = await invoke("get_log_state", { path });
+          incrementalState.checkpoints[path] = cp;
+          incrementalState.enabled = incrementalUpload.checked = true;
+          persistIncremental();
+        } catch (err) { showError(String(err)); }
+        finally { incrementalBusy = false; updateIncrementalUI(); }
+      });
+      resetPositionBtn.addEventListener("click", () => {
+        if (!selected || incrementalBusy) return;
+        delete incrementalState.checkpoints[selected.path];
+        try { persistIncremental(); } catch (err) { showError(String(err)); }
+      });
+      if (isTauri && currentGame === "warcraft") document.getElementById("incrementalFields").style.display = "block";
+      updateIncrementalUI();
 
       // --- live log mode ---
       let mode = "upload";
@@ -1403,6 +1465,7 @@
       }
 
       function setSelected(info) {
+        if (incrementalBusy) return;
         selected = info;
         if (info) {
           dz.classList.add("has-file");
@@ -1412,6 +1475,7 @@
           dz.classList.remove("has-file");
           fileinfo.textContent = "";
         }
+        updateIncrementalUI();
       }
 
       if (isTauri) {
@@ -1513,6 +1577,8 @@
         errMsg.style.display = "block";
       }
       function resetUI() {
+        incrementalBusy = true;
+        updateIncrementalUI();
         btn.disabled = true;
         btn.textContent = "Uploading...";
         setModeSwitchEnabled(false);
@@ -1527,6 +1593,8 @@
         bar.className = "bar-fill";
       }
       function finishUI() {
+        incrementalBusy = false;
+        updateIncrementalUI();
         btn.disabled = false;
         btn.textContent = "Upload Log";
         setModeSwitchEnabled(true);
@@ -1664,6 +1732,9 @@
       }
 
       async function tauriUpload() {
+        const uploadPath = selected.path;
+        const incremental = incrementalUpload.checked && currentGame === "warcraft";
+        const checkpoint = incremental ? checkpointFor(uploadPath) : null;
         let unlisteners = [];
         const cleanup = () => {
           unlisteners.forEach((fn) => {
@@ -1679,6 +1750,11 @@
         unlisteners.push(
           await listen("upload:done", (e) => {
             showDone(e.payload.url);
+            if (incremental && e.payload.checkpoint) {
+              incrementalState.checkpoints[uploadPath] = e.payload.checkpoint;
+              try { persistIncremental(); }
+              catch (err) { showError("Upload succeeded, but the position could not be saved: " + err); }
+            }
             cleanup();
           }),
         );
@@ -1694,7 +1770,9 @@
         try {
           await invoke("start_upload", {
             args: {
-              logPath: selected.path,
+              logPath: uploadPath,
+              incremental,
+              checkpoint,
               email: document.getElementById("email").value,
               password: document.getElementById("password").value,
               region: parseInt(document.getElementById("region").value, 10),
@@ -1796,6 +1874,7 @@
 
       document.getElementById("form").addEventListener("submit", async (e) => {
         e.preventDefault();
+        if (incrementalBusy) return;
         if (mode === "live") {
           if (liveRunning) {
             await stopLive();

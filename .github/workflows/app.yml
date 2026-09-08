@@ -2,7 +2,7 @@ name: app
 
 on:
   push:
-    branches: [main, tauri]
+    branches: [main, tauri, incremental-upload]
     tags: ["v*"]
     paths:
       - app/**
@@ -74,6 +74,10 @@ jobs:
       - name: Build Tauri app
         working-directory: app
         run: cargo tauri build --target ${{ matrix.target }}
+
+      - name: Test desktop client
+        working-directory: app/src-tauri
+        run: cargo test --locked --release --target ${{ matrix.target }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

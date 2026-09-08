@@ -163,91 +163,6 @@
         margin-top: 6px;
       }
 
-      /* Inline game picker embedded in the tagline. Reads as plain underlined
-         text with a small caret; opens a popover to switch RPGLogs sites. */
-      .game-picker {
-        position: relative;
-        display: inline-block;
-      }
-      .game-picker-btn {
-        font: inherit;
-        letter-spacing: inherit;
-        text-transform: inherit;
-        color: var(--text);
-        background: none;
-        border: none;
-        padding: 0 0 1px;
-        margin: 0;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: baseline;
-        gap: 3px;
-        border-bottom: 1px solid var(--border);
-        transition:
-          color 0.15s,
-          border-color 0.15s;
-      }
-      .game-picker-btn:hover,
-      .game-picker.open .game-picker-btn {
-        color: var(--accent);
-        border-bottom-color: var(--accent);
-      }
-      .game-picker-arrow {
-        width: 7px;
-        height: 7px;
-        flex-shrink: 0;
-        transform: translateY(-1px);
-        transition: transform 0.2s;
-        opacity: 0.8;
-      }
-      .game-picker.open .game-picker-arrow {
-        transform: translateY(-1px) rotate(180deg);
-      }
-      .game-picker-menu {
-        position: absolute;
-        top: calc(100% + 8px);
-        /* Shift left by (border + inner padding) so item text lines up under the
-           subtitle word rather than being indented by the panel's padding. */
-        left: -11px;
-        transform: translateY(-4px);
-        z-index: 20;
-        padding: 5px 10px;
-        list-style: none;
-        text-align: left;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 5px;
-        box-shadow: var(--shadow);
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-        transition:
-          opacity 0.16s,
-          transform 0.16s,
-          visibility 0.16s;
-      }
-      .game-picker.open .game-picker-menu {
-        opacity: 1;
-        visibility: visible;
-        pointer-events: auto;
-        transform: translateY(0);
-      }
-      .game-picker-menu li {
-        display: block;
-        padding: 4px 0;
-        font: inherit;
-        letter-spacing: inherit;
-        text-transform: uppercase;
-        color: var(--text-dim);
-        white-space: nowrap;
-        cursor: pointer;
-        transition: color 0.12s;
-      }
-      .game-picker-menu li:hover,
-      .game-picker-menu li[aria-selected="true"] {
-        color: var(--accent);
-      }
-
       .theme-toggle {
         position: fixed;
         top: 16px;
@@ -305,39 +220,6 @@
       }
       [data-theme="dark"] .theme-toggle-icon.moon {
         opacity: 0.9;
-      }
-
-      .mode-switch {
-        display: none;
-        gap: 0;
-        margin-bottom: 20px;
-        border: 1px solid var(--border);
-        border-radius: 3px;
-        overflow: hidden;
-      }
-      .mode-switch.visible {
-        display: flex;
-      }
-      .mode-switch button {
-        flex: 1;
-        padding: 9px 0;
-        border: none;
-        background: transparent;
-        color: var(--text-dim);
-        font-family: "Lexend", sans-serif;
-        font-size: 0.78rem;
-        font-weight: 500;
-        letter-spacing: 0.04em;
-        cursor: pointer;
-        transition: all 0.2s;
-      }
-      .mode-switch button.active {
-        background: var(--accent);
-        color: #fff;
-      }
-      .mode-switch button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
       }
 
       .field label.checkline {
@@ -752,35 +634,7 @@
           <h1>combatlog<em>.dev</em></h1>
           <div class="sub">
             a privacy conscious uploader for
-            <span class="game-picker" id="gamePicker">
-              <button
-                type="button"
-                class="game-picker-btn"
-                id="gamePickerBtn"
-                aria-haspopup="listbox"
-                aria-expanded="false"
-              >
-                <span id="gamePickerLabel">WARCRAFT</span>
-                <svg
-                  class="game-picker-arrow"
-                  viewBox="0 0 10 6"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.6"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M1 1l4 4 4-4" />
-                </svg>
-              </button>
-              <ul
-                class="game-picker-menu"
-                id="gamePickerMenu"
-                role="listbox"
-                aria-label="Select game"
-              ></ul>
-            </span>
+            <strong class="game-name">WARCRAFT LOGS</strong>
           </div>
         </div>
 
@@ -796,6 +650,10 @@
           </div>
 
           <div id="loginFields">
+            <p class="credential-hint">
+              Use the same email and password you use to sign in to
+              <strong>warcraftlogs.com</strong>.
+            </p>
             <div class="field">
               <label for="email">Email</label>
               <input
@@ -826,13 +684,6 @@
           </div>
 
           <div id="uploadSection" style="display: none">
-            <div class="mode-switch" id="modeSwitch">
-              <button type="button" id="modeUpload" class="active">
-                Upload Log
-              </button>
-              <button type="button" id="modeLive">Live Log</button>
-            </div>
-
             <div class="field" id="guildField">
               <label for="guild">Upload to</label>
               <select id="guild" name="guild"></select>
@@ -897,38 +748,6 @@
               </div>
             </div>
 
-            <div class="field" id="liveFields" style="display: none">
-              <label>Log Directory</label>
-              <div class="dropzone" id="liveDropzone">
-                <svg
-                  class="dropzone-icon"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path
-                    d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"
-                  />
-                </svg>
-                <div class="dropzone-text">
-                  Drop your <strong>Logs</strong> folder here<br />or click to
-                  browse
-                </div>
-                <div class="fileinfo" id="liveDirInfo"></div>
-              </div>
-              <label class="checkline">
-                <input type="checkbox" id="includeExisting" />
-                <span>Include existing file contents in the report</span>
-              </label>
-              <label class="checkline">
-                <input type="checkbox" id="fightEndOnly" />
-                <span>Upload only when a fight ends</span>
-              </label>
-            </div>
-
             <button type="submit" id="btn" class="btn">Upload Log</button>
           </div>
         </form>
@@ -979,67 +798,9 @@
         applyTheme(cur === "light" ? "dark" : "light");
       });
 
-      // ---- Games -------------------------------------------------------------
-      // Every RPGLogs site shares one upload mechanism; only the endpoints
-      // and the region set differ. Region codes: WoW + FFLogs are verified;
-      // For ESO/SWTOR I'm guessing the platform pattern (1=Americas, 2=EU). (TODO: test)
-      // I omitted ESO's PTS since I have no clue what it is.
-      const GAMES = {
-        warcraft: {
-          name: "WARCRAFT",
-          logHint: "WoWCombatLog",
-          regions: [
-            { v: "1", t: "US" },
-            { v: "2", t: "EU" },
-            { v: "3", t: "KR" },
-            { v: "4", t: "TW" },
-            { v: "5", t: "CN" },
-          ],
-          defaultRegion: "2",
-        },
-        ff: {
-          name: "FF14",
-          logHint: "FFXIV log",
-          regions: [
-            { v: "1", t: "NA" },
-            { v: "2", t: "EU" },
-            { v: "3", t: "JP" },
-            { v: "6", t: "OC" },
-          ],
-          defaultRegion: "1",
-        },
-        eso: {
-          name: "ESO",
-          logHint: "ESO log",
-          regions: [
-            { v: "1", t: "NA" },
-            { v: "2", t: "EU" },
-          ],
-          defaultRegion: "1",
-        },
-        swtor: {
-          name: "SWTOR",
-          logHint: "SWTOR log",
-          regions: [
-            { v: "1", t: "NA" },
-            { v: "2", t: "EU" },
-          ],
-          defaultRegion: "1",
-        },
-        fellowship: {
-          name: "FELLOWSHIP",
-          logHint: "Fellowship log",
-          regions: [
-            { v: "1", t: "NA" },
-            { v: "2", t: "EU" },
-          ],
-          defaultRegion: "1",
-        },
-      };
-      const GAME_ORDER = ["warcraft", "ff", "eso", "swtor", "fellowship"];
-      const GAME_KEY = "wcl_game";
-      let currentGame = localStorage.getItem(GAME_KEY);
-      if (!GAMES[currentGame]) currentGame = "warcraft";
+      // This client intentionally supports Warcraft Logs only.
+      const currentGame = "warcraft";
+      document.body.dataset.game = currentGame;
 
       const STORE_KEY = "wcl_upload_creds";
       function readCreds() {
@@ -1105,7 +866,7 @@
 
       const guildField = document.getElementById("guildField");
       const guildSel = document.getElementById("guild");
-      // Guild lists are per-site, so the cache key is scoped by game + email.
+      // Keep the cache key scoped so it remains compatible with earlier builds.
       const guildCacheKey = (email) =>
         "wcl_guilds_" + currentGame + "_" + email;
       let guildReqId = 0;
@@ -1148,7 +909,6 @@
           return await invoke("fetch_guilds", {
             email,
             password,
-            game: currentGame,
           });
         }
         const fd = new FormData();
@@ -1248,92 +1008,6 @@
         if (rid) document.getElementById("region").value = rid;
       });
 
-      // ---- Game picker -------------------------------------------------------
-      const regionSel = document.getElementById("region");
-      const dropHint = document.getElementById("dropHint");
-      const gamePicker = document.getElementById("gamePicker");
-      const gamePickerBtn = document.getElementById("gamePickerBtn");
-      const gamePickerMenu = document.getElementById("gamePickerMenu");
-      const gamePickerLabel = document.getElementById("gamePickerLabel");
-
-      function buildRegionOptions() {
-        const g = GAMES[currentGame];
-        const prev = regionSel.value;
-        const savedRegion = (readCreds() || {}).region;
-        const valid = (v) => g.regions.some((r) => r.v === v);
-        regionSel.innerHTML = "";
-        for (const r of g.regions) {
-          const o = document.createElement("option");
-          o.value = r.v;
-          o.textContent = r.t;
-          regionSel.appendChild(o);
-        }
-        regionSel.value = valid(prev)
-          ? prev
-          : valid(savedRegion)
-            ? savedRegion
-            : g.defaultRegion;
-      }
-
-      function renderGameMenu() {
-        gamePickerMenu.innerHTML = "";
-        for (const id of GAME_ORDER) {
-          const li = document.createElement("li");
-          li.setAttribute("role", "option");
-          li.dataset.game = id;
-          li.textContent = GAMES[id].name;
-          li.setAttribute(
-            "aria-selected",
-            id === currentGame ? "true" : "false",
-          );
-          li.addEventListener("click", () => {
-            closeGameMenu();
-            if (id !== currentGame) applyGame(id);
-          });
-          gamePickerMenu.appendChild(li);
-        }
-      }
-
-      function openGameMenu() {
-        gamePicker.classList.add("open");
-        gamePickerBtn.setAttribute("aria-expanded", "true");
-      }
-      function closeGameMenu() {
-        gamePicker.classList.remove("open");
-        gamePickerBtn.setAttribute("aria-expanded", "false");
-      }
-
-      function applyGame(id) {
-        currentGame = GAMES[id] ? id : "warcraft";
-        document.body.dataset.game = currentGame;
-        document.getElementById("incrementalFields").style.display =
-          isTauri && currentGame === "warcraft" ? "block" : "none";
-        localStorage.setItem(GAME_KEY, currentGame);
-        const g = GAMES[currentGame];
-        gamePickerLabel.textContent = g.name;
-        if (dropHint) dropHint.textContent = g.logHint;
-        renderGameMenu();
-        buildRegionOptions();
-        // Guilds are per-site; drop the old list and refresh for this game.
-        guildSel.innerHTML = "";
-        guildField.style.display = "none";
-        loadGuilds();
-      }
-
-      gamePickerBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (gamePicker.classList.contains("open")) closeGameMenu();
-        else openGameMenu();
-      });
-      document.addEventListener("click", (e) => {
-        if (!gamePicker.contains(e.target)) closeGameMenu();
-      });
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") closeGameMenu();
-      });
-
-      applyGame(currentGame);
-
       function fmtSize(bytes) {
         if (bytes < 1024) return bytes + " B";
         if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
@@ -1398,75 +1072,6 @@
       if (isTauri && currentGame === "warcraft") document.getElementById("incrementalFields").style.display = "block";
       updateIncrementalUI();
 
-      // --- live log mode ---
-      let mode = "upload";
-      let selectedDir = null;
-      let liveRunning = false;
-      const LIVE_KEY = "wcl_live_settings";
-      const liveDz = document.getElementById("liveDropzone");
-      const liveDirInfo = document.getElementById("liveDirInfo");
-      const includeExisting = document.getElementById("includeExisting");
-      const fightEndOnly = document.getElementById("fightEndOnly");
-
-      function setSelectedDir(info) {
-        selectedDir = info;
-        if (info) {
-          liveDz.classList.add("has-file");
-          liveDirInfo.textContent = info.path;
-        } else {
-          liveDz.classList.remove("has-file");
-          liveDirInfo.textContent = "";
-        }
-      }
-
-      function saveLiveSettings() {
-        localStorage.setItem(
-          LIVE_KEY,
-          JSON.stringify({
-            directory: selectedDir ? selectedDir.path : null,
-            includeExisting: includeExisting.checked,
-            fightEndOnly: fightEndOnly.checked,
-          }),
-        );
-      }
-
-      function loadLiveSettings() {
-        let d;
-        try {
-          d = JSON.parse(localStorage.getItem(LIVE_KEY)) || {};
-        } catch {
-          d = {};
-        }
-        if (d.directory)
-          setSelectedDir({ path: d.directory, name: d.directory, size: 0 });
-        if (typeof d.includeExisting === "boolean")
-          includeExisting.checked = d.includeExisting;
-        if (typeof d.fightEndOnly === "boolean")
-          fightEndOnly.checked = d.fightEndOnly;
-      }
-
-      function setMode(m) {
-        if (liveRunning) return;
-        mode = m;
-        document.body.dataset.mode = m;
-        document
-          .getElementById("modeUpload")
-          .classList.toggle("active", m === "upload");
-        document
-          .getElementById("modeLive")
-          .classList.toggle("active", m === "live");
-        document.getElementById("uploadFields").style.display =
-          m === "upload" ? "block" : "none";
-        document.getElementById("liveFields").style.display =
-          m === "live" ? "block" : "none";
-        btn.textContent = m === "upload" ? "Upload Log" : "Start Live Logging";
-      }
-
-      function setModeSwitchEnabled(on) {
-        document.getElementById("modeUpload").disabled = !on;
-        document.getElementById("modeLive").disabled = !on;
-      }
-
       function setSelected(info) {
         if (incrementalBusy) return;
         selected = info;
@@ -1483,31 +1088,15 @@
       }
 
       if (isTauri) {
-        document.getElementById("modeSwitch").classList.add("visible");
-        document
-          .getElementById("modeUpload")
-          .addEventListener("click", () => setMode("upload"));
-        document
-          .getElementById("modeLive")
-          .addEventListener("click", () => setMode("live"));
-        loadLiveSettings();
-
         dz.addEventListener("click", async () => {
           const info = await invoke("pick_log_file");
           if (info) setSelected(info);
-        });
-        liveDz.addEventListener("click", async () => {
-          const info = await invoke("pick_log_directory");
-          if (info) {
-            setSelectedDir(info);
-            saveLiveSettings();
-          }
         });
         ["dragenter", "dragover", "dragleave", "drop"].forEach((ev) =>
           window.addEventListener(ev, (e) => e.preventDefault()),
         );
         getCurrentWebview().onDragDropEvent(async (event) => {
-          const zone = mode === "live" ? liveDz : dz;
+          const zone = dz;
           if (event.payload.type === "over" || event.payload.type === "enter") {
             zone.classList.add("dragover");
           } else if (event.payload.type === "leave") {
@@ -1517,14 +1106,8 @@
             const paths = event.payload.paths || [];
             if (!paths.length) return;
             try {
-              if (mode === "live") {
-                const info = await invoke("dir_info", { path: paths[0] });
-                setSelectedDir(info);
-                saveLiveSettings();
-              } else {
-                const info = await invoke("file_info", { path: paths[0] });
-                setSelected(info);
-              }
+              const info = await invoke("file_info", { path: paths[0] });
+              setSelected(info);
             } catch (err) {
               showError(String(err));
             }
@@ -1585,7 +1168,6 @@
         updateIncrementalUI();
         btn.disabled = true;
         btn.textContent = "Uploading...";
-        setModeSwitchEnabled(false);
         prog.style.display = "block";
         document.getElementById("barTrack").style.display = "block";
         document.getElementById("resultLabel").textContent = "Upload complete";
@@ -1601,7 +1183,6 @@
         updateIncrementalUI();
         btn.disabled = false;
         btn.textContent = "Upload Log";
-        setModeSwitchEnabled(true);
       }
       function showDone(url) {
         bar.style.width = "100%";
@@ -1627,112 +1208,6 @@
       function appendLog(m) {
         logEl.textContent += m + "\n";
         logEl.scrollTop = logEl.scrollHeight;
-      }
-
-      function resetLiveUI() {
-        btn.disabled = false;
-        btn.textContent = "Stop Live Logging";
-        prog.style.display = "block";
-        document.getElementById("barTrack").style.display = "none";
-        resultEl.style.display = "none";
-        errMsg.style.display = "none";
-        logEl.textContent = "";
-        statusEl.textContent = "";
-      }
-
-      function finishLiveUI() {
-        liveRunning = false;
-        btn.disabled = false;
-        btn.textContent = "Start Live Logging";
-        setModeSwitchEnabled(true);
-      }
-
-      async function startLive() {
-        let unlisteners = [];
-        const cleanup = () => {
-          unlisteners.forEach((fn) => {
-            try {
-              fn();
-            } catch {}
-          });
-          unlisteners = [];
-        };
-        unlisteners.push(
-          await listen("live:started", (e) => {
-            resultEl.style.display = "block";
-            document.getElementById("resultLabel").textContent = "Live report";
-            const link = document.getElementById("report-link");
-            link.href = e.payload.url;
-            link.textContent = e.payload.url;
-            link.onclick = (ev) => {
-              ev.preventDefault();
-              openUrl(e.payload.url);
-            };
-          }),
-        );
-        unlisteners.push(
-          await listen("live:progress", (e) => {
-            statusEl.textContent = e.payload.message;
-            appendLog(e.payload.message);
-          }),
-        );
-        unlisteners.push(
-          await listen("live:done", (e) => {
-            document.getElementById("resultLabel").textContent =
-              "Live log complete";
-            appendLog(
-              "Live log ended — " + e.payload.segments + " segments uploaded",
-            );
-            finishLiveUI();
-            cleanup();
-          }),
-        );
-        unlisteners.push(
-          await listen("live:error", (e) => {
-            showError(e.payload.message);
-            statusEl.textContent = "Live log failed";
-            finishLiveUI();
-            cleanup();
-          }),
-        );
-
-        liveRunning = true;
-        setModeSwitchEnabled(false);
-        resetLiveUI();
-        try {
-          await invoke("start_live_log", {
-            args: {
-              directory: selectedDir.path,
-              email: document.getElementById("email").value,
-              password: document.getElementById("password").value,
-              region: parseInt(document.getElementById("region").value, 10),
-              visibility: parseInt(
-                document.getElementById("visibility").value,
-                10,
-              ),
-              guildId: guildSel.value ? parseInt(guildSel.value, 10) : null,
-              includeEntireFileInReport: includeExisting.checked,
-              enableRealTimeUploading: !fightEndOnly.checked,
-              game: currentGame,
-            },
-          });
-        } catch (err) {
-          showError(String(err));
-          finishLiveUI();
-          cleanup();
-        }
-      }
-
-      async function stopLive() {
-        btn.disabled = true;
-        btn.textContent = "Stopping...";
-        appendLog("Stopping live log...");
-        try {
-          await invoke("stop_live_log");
-        } catch (err) {
-          showError(String(err));
-          finishLiveUI();
-        }
       }
 
       async function tauriUpload() {
@@ -1785,7 +1260,6 @@
                 10,
               ),
               guildId: guildSel.value ? parseInt(guildSel.value, 10) : null,
-              game: currentGame,
             },
           });
         } catch (err) {
@@ -1879,22 +1353,6 @@
       document.getElementById("form").addEventListener("submit", async (e) => {
         e.preventDefault();
         if (incrementalBusy) return;
-        if (mode === "live") {
-          if (liveRunning) {
-            await stopLive();
-            return;
-          }
-          if (!selectedDir) {
-            liveDz.style.borderColor = "var(--error)";
-            setTimeout(() => (liveDz.style.borderColor = ""), 1000);
-            return;
-          }
-          saveCreds();
-          saveLiveSettings();
-          updateLoginUI();
-          await startLive();
-          return;
-        }
         if (!selected) {
           dz.style.borderColor = "var(--error)";
           setTimeout(() => (dz.style.borderColor = ""), 1000);
@@ -1916,14 +1374,12 @@
       });
       if (isTauri) {
         document.body.classList.add("desktop-runs");
-        document.body.dataset.mode = mode;
         const { installRuns } = await import("./runs-ui.js");
         installRuns({ invoke, listen, getFile: () => selected,
-          isWarcraft: () => currentGame === "warcraft",
           showError,
           setBusy: (busy) => {
             incrementalBusy = busy;
-            document.querySelectorAll("#form input, #form select, #form button, #gamePickerBtn").forEach(el => el.disabled = busy);
+            document.querySelectorAll("#form input, #form select, #form button").forEach(el => el.disabled = busy);
           }
         });
         document.getElementById("incrementalFields").style.setProperty("display", "none", "important");

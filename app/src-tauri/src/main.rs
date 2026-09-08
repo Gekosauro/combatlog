@@ -2,7 +2,6 @@
 
 mod incremental;
 mod runs;
-mod live;
 mod parser;
 mod wcl;
 
@@ -27,8 +26,6 @@ struct UploadArgs {
     region: i32,
     visibility: i32,
     guild_id: Option<i64>,
-    #[serde(default)]
-    game: String,
     #[serde(default)]
     incremental: bool,
     #[serde(default)]
@@ -123,9 +120,8 @@ fn describe_file(path: &std::path::Path) -> FileInfo {
 async fn fetch_guilds(
     email: String,
     password: String,
-    game: Option<String>,
 ) -> Result<LoginResult, String> {
-    let session = wcl::WclSession::new(game.as_deref().unwrap_or("warcraft"))
+    let session = wcl::WclSession::new("warcraft")
         .await
         .map_err(|e| format!("{e:#}"))?;
     let login = session
@@ -164,71 +160,6 @@ async fn start_upload(app: AppHandle, args: UploadArgs) -> Result<(), String> {
         }
     });
     Ok(())
-}
-
-#[derive(Default)]
-struct LiveLogState(std::sync::Mutex<(u64, Option<tokio::sync::watch::Sender<bool>>)>);
-
-/// native folder picker for the live log directory.
-#[tauri::command]
-async fn pick_log_directory(app: AppHandle) -> Option<FileInfo> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    app.dialog().file().pick_folder(move |path| {
-        let _ = tx.send(path);
-    });
-    let path = rx.await.ok().flatten()?;
-    let pb = path.as_path()?.to_path_buf();
-    Some(describe_file(&pb))
-}
-
-/// dir info
-#[tauri::command]
-fn dir_info(path: String) -> Result<FileInfo, String> {
-    let pb = std::path::PathBuf::from(&path);
-    if !pb.is_dir() {
-        return Err(format!("not a directory: {path}"));
-    }
-    Ok(describe_file(&pb))
-}
-
-#[tauri::command]
-async fn start_live_log(
-    app: AppHandle,
-    state: tauri::State<'_, LiveLogState>,
-    args: live::LiveLogArgs,
-) -> Result<(), String> {
-    let (rx, my_gen) = {
-        let mut guard = state.0.lock().unwrap();
-        if guard.1.as_ref().map(|tx| !tx.is_closed()).unwrap_or(false) {
-            return Err("live log already running".into());
-        }
-        let (tx, rx) = tokio::sync::watch::channel(false);
-        guard.0 += 1;
-        guard.1 = Some(tx);
-        (rx, guard.0)
-    };
-    tokio::spawn(async move {
-        if let Err(e) = live::run_live_log(app.clone(), args, rx).await {
-            let _ = app.emit("live:error", json!({"message": format!("{e:#}")}));
-        }
-        let state = app.state::<LiveLogState>();
-        let mut guard = state.0.lock().unwrap();
-        if guard.0 == my_gen {
-            guard.1 = None;
-        }
-    });
-    Ok(())
-}
-
-#[tauri::command]
-fn stop_live_log(state: tauri::State<'_, LiveLogState>) -> Result<(), String> {
-    match state.0.lock().unwrap().1.take() {
-        Some(tx) => {
-            let _ = tx.send(true);
-            Ok(())
-        }
-        None => Err("no live log running".into()),
-    }
 }
 
 #[cfg(windows)]
@@ -332,7 +263,6 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(LiveLogState::default())
         .setup(|app| {
             #[cfg(windows)]
             if let Some(win) = app.get_webview_window("main") {
@@ -354,10 +284,6 @@ fn main() {
             open_url,
             fetch_guilds,
             start_upload,
-            pick_log_directory,
-            dir_info,
-            start_live_log,
-            stop_live_log,
             set_titlebar_theme
         ])
         .run(tauri::generate_context!())
@@ -387,7 +313,6 @@ async fn run_upload(app: &AppHandle, args: UploadArgs) -> Result<()> {
 
     emit_progress(app, "read", "Reading log file...", 1);
     let (raw, checkpoint) = if let Some(id) = args.run_id.clone() {
-        if args.game != "warcraft" { return Err(anyhow!("Run selection is supported only for Warcraft.")); }
         let path = log_path.clone();
         let (raw, title) = tokio::task::spawn_blocking(move || runs::extract(&path, &id)).await??;
         filename = title;
@@ -416,7 +341,7 @@ async fn run_upload(app: &AppHandle, args: UploadArgs) -> Result<()> {
     );
 
     emit_progress(app, "session", "Initializing session...", 3);
-    let session = wcl::WclSession::new(&args.game).await?;
+    let session = wcl::WclSession::new("warcraft").await?;
 
     emit_progress(app, "login", "Logging in...", 4);
     let login = session.login(&args.email, &args.password).await?;

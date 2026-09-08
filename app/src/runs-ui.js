@@ -1,5 +1,5 @@
 // Desktop run selection. History records only successful uploads by this app.
-export function installRuns({ invoke, listen, getFile, isWarcraft, setBusy, showError }) {
+export function installRuns({ invoke, listen, getFile, setBusy, showError }) {
   const icons = {
     scan: '<circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>',
     upload: '<path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5"/>',
@@ -43,7 +43,6 @@ export function installRuns({ invoke, listen, getFile, isWarcraft, setBusy, show
   const historyKey = (run) => JSON.stringify([account(), run.id]);
   const uploaded = (run) => history[historyKey(run)];
   function render() {
-    host.hidden = !isWarcraft();
     scanButton.disabled = busy || !getFile();
     const missing = runs.filter(r => r.complete && !uploaded(r)).length;
     all.disabled = busy || !missing;
@@ -80,7 +79,7 @@ export function installRuns({ invoke, listen, getFile, isWarcraft, setBusy, show
   }
   function lock(value) { busy = value; setBusy(value); render(); }
   async function scan() {
-    if (busy || !getFile() || !isWarcraft()) return;
+    if (busy || !getFile()) return;
     const path = getFile().path, ticket = ++generation;
     runs = []; scannedPath = null; activity.hidden = true; lock(true); summary.textContent = "Reading log…";
     try {
@@ -110,7 +109,7 @@ export function installRuns({ invoke, listen, getFile, isWarcraft, setBusy, show
     const email = document.getElementById("email").value;
     const args = { logPath: scannedPath, email, password: document.getElementById("password").value,
       region: Number(document.getElementById("region").value), visibility: Number(document.getElementById("visibility").value),
-      guildId: Number(document.getElementById("guild").value) || null, game: "warcraft" };
+      guildId: Number(document.getElementById("guild").value) || null };
     lock(true);
     activity.hidden = false; activity.dataset.state = "uploading";
     output.textContent = ""; document.getElementById("error-msg").style.display = "none";
@@ -134,7 +133,7 @@ export function installRuns({ invoke, listen, getFile, isWarcraft, setBusy, show
   document.addEventListener("log-selected", () => { runs = []; scannedPath = null; render(); scan(); });
   // Warcraft desktop uses run selection, preventing accidental whole-file merges.
   document.getElementById("form").addEventListener("submit", e => {
-    if (!isWarcraft() || document.getElementById("uploadFields").style.display === "none") return;
+    if (document.getElementById("uploadFields").style.display === "none") return;
     e.preventDefault(); e.stopImmediatePropagation();
     // Enter in a form field never starts an unintended batch upload.
     if (!scannedPath) scan();

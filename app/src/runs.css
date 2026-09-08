@@ -24,9 +24,15 @@ body { background: radial-gradient(ellipse at top, var(--accent-tint-md), transp
 .card { border-radius: 18px; }
 .btn, input, select, .dropzone, .logged-in-panel { border-radius: 9px; }
 button:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
-.desktop-runs[data-game="warcraft"][data-mode="upload"] #btn,
-.desktop-runs[data-game="warcraft"] #incrementalFields { display: none !important; }
-.desktop-runs:not([data-game="warcraft"]) .runs-panel { display: none; }
+.game-name { color: var(--accent); font-weight: 500; letter-spacing: .08em; }
+.credential-hint {
+  margin: 0 0 18px; padding: 13px 15px; border: 1px solid var(--accent-glow-strong);
+  border-radius: 10px; background: var(--accent-tint); color: var(--text-dim);
+  font-size: .76rem; line-height: 1.6;
+}
+.credential-hint strong { color: var(--text); font-weight: 500; }
+.desktop-runs #btn,
+.desktop-runs #incrementalFields { display: none !important; }
 .runs-panel { margin-top: 24px; font-size: .8rem; }
 .runs-panel [hidden] { display: none !important; }
 .run-action {

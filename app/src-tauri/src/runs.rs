@@ -9,6 +9,8 @@ pub struct Run {
     pub id: String,
     pub name: String,
     pub level: u32,
+    pub kind: String,
+    pub difficulty: u32,
     pub started: String,
     pub ended: Option<String>,
     pub duration_ms: Option<u64>,
@@ -17,11 +19,28 @@ pub struct Run {
     #[serde(skip)] end: u64,
     #[serde(skip)] zone: String,
     #[serde(skip)] context: String,
+    #[serde(skip)] attempts: u32,
+    #[serde(skip)] encounter_open: bool,
 }
 
 fn hash(mut value: u64, bytes: &[u8]) -> u64 {
     for b in bytes { value = (value ^ *b as u64).wrapping_mul(0x100000001b3); }
     value
+}
+
+fn run_id(run: &Run, digest: u64) -> String {
+    format!("{}-v1-{digest:016x}", if run.kind == "raid" { "raid" } else { "mplus" })
+}
+
+fn finish(runs: &mut Vec<Run>, active: &mut Option<Run>, digest: u64, closed: bool) {
+    if let Some(mut run) = active.take() {
+        if run.kind == "raid" {
+            if run.attempts == 0 { return; }
+            run.complete = closed && !run.encounter_open;
+        }
+        run.id = run_id(&run, digest);
+        runs.push(run);
+    }
 }
 
 /// Stream a fixed file-length snapshot. Never infer a run from a reset END.
@@ -30,6 +49,7 @@ pub fn scan(path: &Path) -> Result<Vec<Run>> {
     let len = file.metadata()?.len();
     let mut reader = BufReader::new(file.take(len));
     let start_re = Regex::new(r#"^CHALLENGE_MODE_START,"([^"]+)",(\d+),(\d+),(\d+),"#)?;
+    let zone_re = Regex::new(r#"^ZONE_CHANGE,(\d+),"([^"]+)",(\d+)"#)?;
     let mut runs = Vec::new();
     let mut active: Option<Run> = None;
     let mut digest = 0xcbf29ce484222325;
@@ -44,15 +64,32 @@ pub fn scan(path: &Path) -> Result<Vec<Run>> {
         if n == 0 || !line.ends_with('\n') { break; }
         let end = offset + n as u64;
         if let Some((stamp, event)) = line.trim_end().split_once("  ") {
+            if let Some(c) = zone_re.captures(event) {
+                let difficulty: u32 = c[3].parse()?;
+                // Modern Normal/Heroic/Mythic/LFR and legacy raid difficulties.
+                let raid = matches!(difficulty, 3 | 4 | 5 | 6 | 7 | 9 | 14 | 15 | 16 | 17);
+                let same_session = active.as_ref().is_some_and(|r|
+                    r.kind == "raid" && r.zone == c[1] && r.difficulty == difficulty);
+                if active.as_ref().is_some_and(|r| r.kind == "raid") && !same_session {
+                    finish(&mut runs, &mut active, digest, true);
+                }
+                if raid && !same_session {
+                    finish(&mut runs, &mut active, digest, false);
+                    digest = 0xcbf29ce484222325;
+                    active = Some(Run { id: String::new(), name: c[2].into(), level: 0,
+                        kind: "raid".into(), difficulty, zone: c[1].into(), started: stamp.into(),
+                        ended: None, duration_ms: None, complete: false, start: offset, end,
+                        context: header.clone(), attempts: 0, encounter_open: false });
+                }
+            }
             if event.starts_with("COMBAT_LOG_VERSION,") { header = line.clone(); }
             if event.starts_with("ZONE_CHANGE,") { zone = line.clone(); }
             if event.starts_with("MAP_CHANGE,") { map = line.clone(); }
             if let Some(c) = start_re.captures(event) {
-                if let Some(mut previous) = active.take() {
-                    previous.id = format!("mplus-v1-{digest:016x}"); runs.push(previous);
-                }
+                finish(&mut runs, &mut active, digest, true);
                 digest = 0xcbf29ce484222325;
                 active = Some(Run { id: String::new(), name: c[1].into(), level: c[4].parse()?,
+                    kind: "mplus".into(), difficulty: 8, attempts: 0, encounter_open: false,
                     zone: c[2].into(), started: stamp.into(), ended: None, duration_ms: None,
                     complete: false, start: offset, end,
                     context: format!("{header}{zone}{map}") });
@@ -61,13 +98,18 @@ pub fn scan(path: &Path) -> Result<Vec<Run>> {
                 digest = hash(digest, line.trim_end_matches(['\r', '\n']).as_bytes());
                 digest = hash(digest, b"\n");
                 run.end = end;
-                if event.starts_with("CHALLENGE_MODE_END,") {
+                if run.kind == "raid" {
+                    run.ended = Some(stamp.into());
+                    if event.starts_with("ENCOUNTER_START,") { run.attempts += 1; run.encounter_open = true; }
+                    if event.starts_with("ENCOUNTER_END,") { run.encounter_open = false; }
+                }
+                if run.kind == "mplus" && event.starts_with("CHALLENGE_MODE_END,") {
                     let fields: Vec<_> = event.split(',').collect();
                     if fields.get(1) == Some(&run.zone.as_str()) {
                         run.complete = fields.get(2) == Some(&"1");
                         run.ended = Some(stamp.into());
                         run.duration_ms = fields.get(4).and_then(|v| v.parse().ok());
-                        run.id = format!("mplus-v1-{digest:016x}");
+                        run.id = run_id(run, digest);
                         runs.push(active.take().unwrap());
                     }
                 }
@@ -75,7 +117,7 @@ pub fn scan(path: &Path) -> Result<Vec<Run>> {
         }
         offset = end;
     }
-    if let Some(mut run) = active { run.id = format!("mplus-v1-{digest:016x}"); runs.push(run); }
+    finish(&mut runs, &mut active, digest, false);
     Ok(runs)
 }
 
@@ -92,13 +134,58 @@ pub fn extract(path: &Path, id: &str) -> Result<(String, String)> {
     if bytes.len() as u64 != run.end - run.start { bail!("Log changed while reading. Scan again."); }
     let raw = String::from_utf8(bytes)?;
     let digest = raw.lines().fold(0xcbf29ce484222325, |h, line| hash(hash(h, line.as_bytes()), b"\n"));
-    if format!("mplus-v1-{digest:016x}") != id { bail!("Run changed while reading. Scan again."); }
-    Ok((format!("{}{raw}", run.context), format!("{} +{} — {}", run.name, run.level, run.started)))
+    if run_id(&run, digest) != id { bail!("Run changed while reading. Scan again."); }
+    let label = if run.kind == "raid" { format!("{} (raid, difficulty {})", run.name, run.difficulty) }
+        else { format!("{} +{}", run.name, run.level) };
+    Ok((format!("{}{raw}", run.context), format!("{label} — {}", run.started)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn raid_wipes_and_kills_stay_together_and_reentry_is_separate() {
+        let path = std::env::temp_dir().join(format!("raids-{}.txt", rand::random::<u64>()));
+        let events = [
+            "COMBAT_LOG_VERSION,22", "ZONE_CHANGE,3004,\"The Venomous Abyss\",14",
+            "ENCOUNTER_START,3492,\"Ula'tek\",14,20,3004", "ENCOUNTER_END,3492,\"Ula'tek\",14,20,0,1000",
+            // Repeated zone metadata / logging toggle must not split the raid.
+            "COMBAT_LOG_VERSION,22", "ZONE_CHANGE,3004,\"The Venomous Abyss\",14",
+            "ENCOUNTER_START,3492,\"Ula'tek\",14,20,3004", "ENCOUNTER_END,3492,\"Ula'tek\",14,20,1,1000",
+            "ZONE_CHANGE,0,\"Silvermoon City\",0",
+            "ZONE_CHANGE,1762,\"Kings' Rest\",23",
+            "CHALLENGE_MODE_START,\"Kings' Rest\",1762,249,10,[]", "CHALLENGE_MODE_END,1762,1,10,60000",
+            "ZONE_CHANGE,3004,\"The Venomous Abyss\",15",
+            "ENCOUNTER_START,3492,\"Ula'tek\",15,20,3004", "ENCOUNTER_END,3492,\"Ula'tek\",15,20,0,1000",
+            "ZONE_CHANGE,0,\"Silvermoon City\",0",
+        ];
+        let data = events.iter().enumerate().map(|(i,e)| format!("9/7/2026 22:00:{i:02}.0000  {e}\n")).collect::<String>();
+        std::fs::write(&path, &data).unwrap();
+        let runs = scan(&path).unwrap(); assert_eq!(runs.len(), 3);
+        assert_eq!(runs[0].kind, "raid"); assert_eq!(runs[0].attempts, 2);
+        assert_eq!(runs[1].kind, "mplus"); assert_eq!(runs[2].difficulty, 15);
+        assert!(runs.iter().all(|r| r.complete));
+        let raw = extract(&path, &runs[0].id).unwrap().0;
+        assert_eq!(raw.matches("ENCOUNTER_END").count(), 2);
+        assert!(!raw.contains("Silvermoon")); assert!(!raw.contains("CHALLENGE_MODE_START"));
+        // A growing file without a zone exit must not be marked uploaded yet.
+        std::fs::write(&path, data.lines().take(8).collect::<Vec<_>>().join("\n") + "\n").unwrap();
+        assert!(!scan(&path).unwrap()[0].complete);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    #[ignore = "requires a local log fixture; never publish user combat logs"]
+    fn supplied_evening_log_contains_one_raid_and_four_mplus() {
+        let path = std::env::var("COMBATLOG_TEST_FILE").unwrap();
+        let runs = scan(Path::new(&path)).unwrap();
+        assert_eq!(runs.len(), 5);
+        assert_eq!(runs[0].name, "The Venomous Abyss");
+        assert_eq!(runs[0].attempts, 6);
+        assert!(runs.iter().all(|r| r.complete));
+        assert_eq!(runs.iter().filter(|r| r.kind == "mplus").count(), 4);
+        for run in &runs { assert!(extract(Path::new(&path), &run.id).is_ok()); }
+    }
     #[test]
     fn reset_events_are_not_runs_and_reports_are_isolated() {
         let path = std::env::temp_dir().join(format!("runs-{}.txt", rand::random::<u64>()));

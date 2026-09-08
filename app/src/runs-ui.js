@@ -4,7 +4,7 @@ export function installRuns({ invoke, listen, getFile, isWarcraft, setBusy, show
   host.style.cssText = "margin-top:16px;font-size:0.8rem";
   document.getElementById("uploadFields").append(host);
   const scanButton = document.createElement("button");
-  scanButton.type = "button"; scanButton.className = "copy-btn"; scanButton.textContent = "Scan Mythic+ runs";
+  scanButton.type = "button"; scanButton.className = "copy-btn"; scanButton.textContent = "Scan raids and Mythic+ runs";
   const summary = document.createElement("p"); summary.style.margin = "12px 0";
   const list = document.createElement("div");
   const all = document.createElement("button"); all.type = "button"; all.className = "btn";
@@ -24,13 +24,18 @@ export function installRuns({ invoke, listen, getFile, isWarcraft, setBusy, show
     list.replaceChildren();
     for (const run of runs) {
       const row = document.createElement("div"); row.style.cssText = "border-top:1px solid var(--border);padding:12px 0";
-      const name = document.createElement("strong"); name.textContent = `${run.name} +${run.level}`;
+      const difficulties = { 3: "10-player", 4: "25-player", 5: "10-player Heroic", 6: "25-player Heroic", 7: "Raid Finder", 9: "40-player", 14: "Normal", 15: "Heroic", 16: "Mythic", 17: "Raid Finder" };
+      const name = document.createElement("strong"); name.textContent = run.kind === "raid"
+        ? `${run.name} — Raid (${difficulties[run.difficulty] || run.difficulty})`
+        : `${run.name} +${run.level}`;
       const date = document.createElement("p");
       const seconds = Math.floor((run.durationMs || 0) / 1000);
       date.textContent = run.started + (run.durationMs ? ` — ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : "");
       const state = document.createElement("p");
       const record = uploaded(run);
-      state.textContent = !run.complete ? "Incomplete / abandoned — upload unavailable" : record ? "Uploaded" : "Not uploaded by this app";
+      state.textContent = !run.complete ? (run.kind === "raid"
+        ? "Open / incomplete raid session — leave the raid and scan again"
+        : "Incomplete / abandoned — upload unavailable") : record ? "Uploaded" : "Not uploaded by this app";
       row.append(name, date, state);
       if (record) {
         const link = document.createElement("button"); link.type = "button"; link.className = "copy-btn"; link.textContent = "Open report";
@@ -53,7 +58,7 @@ export function installRuns({ invoke, listen, getFile, isWarcraft, setBusy, show
       const found = await invoke("scan_runs", { path });
       if (ticket !== generation) return;
       runs = found; scannedPath = path;
-      summary.textContent = `${runs.length} Mythic+ runs found. Raid encounters are excluded. Previous uploads from other modes or apps are not tracked here.`;
+      summary.textContent = `${runs.length} raid sessions and Mythic+ runs found. Raid wipes and kills stay together. Previous uploads from other modes or apps are not tracked here.`;
     } catch (error) { summary.textContent = "Scan failed"; showError(String(error)); }
     finally { lock(false); }
   }

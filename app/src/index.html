@@ -1476,6 +1476,7 @@
           fileinfo.textContent = "";
         }
         updateIncrementalUI();
+        document.dispatchEvent(new Event("log-selected"));
       }
 
       if (isTauri) {
@@ -1910,6 +1911,18 @@
         if (isTauri) await tauriUpload();
         else webUpload();
       });
+      if (isTauri) {
+        const { installRuns } = await import("./runs-ui.js");
+        installRuns({ invoke, listen, getFile: () => selected,
+          isWarcraft: () => currentGame === "warcraft",
+          showError,
+          setBusy: (busy) => {
+            incrementalBusy = busy;
+            document.querySelectorAll("#form input, #form select, #form button, #gamePickerBtn").forEach(el => el.disabled = busy);
+          }
+        });
+        document.getElementById("incrementalFields").style.setProperty("display", "none", "important");
+      }
     </script>
   </body>
 </html>

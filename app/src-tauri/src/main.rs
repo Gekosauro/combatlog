@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod incremental;
+mod runs;
 mod live;
 mod parser;
 mod wcl;
@@ -32,6 +33,8 @@ struct UploadArgs {
     incremental: bool,
     #[serde(default)]
     checkpoint: Option<incremental::Checkpoint>,
+    #[serde(default)]
+    run_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -318,6 +321,12 @@ async fn get_log_state(path: String) -> Result<incremental::Checkpoint, String> 
         .await.map_err(|e| e.to_string())?.map_err(|e| format!("{e:#}"))
 }
 
+#[tauri::command]
+async fn scan_runs(path: String) -> Result<Vec<runs::Run>, String> {
+    tokio::task::spawn_blocking(move || runs::scan(std::path::Path::new(&path)))
+        .await.map_err(|e| e.to_string())?.map_err(|e| format!("{e:#}"))
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -341,6 +350,7 @@ fn main() {
             pick_log_file,
             file_info,
             get_log_state,
+            scan_runs,
             open_url,
             fetch_guilds,
             start_upload,
@@ -369,14 +379,20 @@ fn emit_progress(app: &AppHandle, step: &str, message: impl Into<String>, pct: u
 /// (TODO: I should really deduplicate this)
 async fn run_upload(app: &AppHandle, args: UploadArgs) -> Result<()> {
     let log_path = PathBuf::from(&args.log_path);
-    let filename = log_path
+    let mut filename = log_path
         .file_name()
         .and_then(|f| f.to_str())
         .unwrap_or("log.txt")
         .to_string();
 
     emit_progress(app, "read", "Reading log file...", 1);
-    let (raw, checkpoint) = if args.incremental {
+    let (raw, checkpoint) = if let Some(id) = args.run_id.clone() {
+        if args.game != "warcraft" { return Err(anyhow!("Run selection is supported only for Warcraft.")); }
+        let path = log_path.clone();
+        let (raw, title) = tokio::task::spawn_blocking(move || runs::extract(&path, &id)).await??;
+        filename = title;
+        (raw, None)
+    } else if args.incremental {
         let path = log_path.clone();
         let previous = args.checkpoint.clone();
         let (raw, checkpoint, reset) = tokio::task::spawn_blocking(move ||

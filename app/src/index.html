@@ -734,6 +734,7 @@
         animation: fadeScale 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
       }
     </style>
+    <link rel="stylesheet" href="./runs.css" />
   </head>
   <body>
     <button
@@ -1304,6 +1305,7 @@
 
       function applyGame(id) {
         currentGame = GAMES[id] ? id : "warcraft";
+        document.body.dataset.game = currentGame;
         document.getElementById("incrementalFields").style.display =
           isTauri && currentGame === "warcraft" ? "block" : "none";
         localStorage.setItem(GAME_KEY, currentGame);
@@ -1446,6 +1448,7 @@
       function setMode(m) {
         if (liveRunning) return;
         mode = m;
+        document.body.dataset.mode = m;
         document
           .getElementById("modeUpload")
           .classList.toggle("active", m === "upload");
@@ -1912,6 +1915,8 @@
         else webUpload();
       });
       if (isTauri) {
+        document.body.classList.add("desktop-runs");
+        document.body.dataset.mode = mode;
         const { installRuns } = await import("./runs-ui.js");
         installRuns({ invoke, listen, getFile: () => selected,
           isWarcraft: () => currentGame === "warcraft",

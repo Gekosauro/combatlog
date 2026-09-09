@@ -16,6 +16,10 @@ on:
 
 jobs:
   build:
+    env:
+      # OAuth public client IDs are safe to embed. When unset, the app lets a
+      # tester paste a Client ID locally instead.
+      WCL_CLIENT_ID: ${{ vars.WCL_CLIENT_ID }}
     strategy:
       fail-fast: false
       matrix:

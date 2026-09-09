@@ -8,6 +8,13 @@
   --text-dim: #686574;
   --report-bg: #e3f3ed;
   --report-text: #176348;
+  --rank-grey: #666;
+  --rank-green: #178f15;
+  --rank-blue: #1769c2;
+  --rank-purple: #7d2fc0;
+  --rank-orange: #c96300;
+  --rank-pink: #c94d91;
+  --rank-gold: #947628;
 }
 [data-theme="dark"] {
   --accent: #9866ec;
@@ -19,6 +26,13 @@
   --text-dim: #a19aaf;
   --report-bg: #183d32;
   --report-text: #89e0bc;
+  --rank-grey: #c9c9c9;
+  --rank-green: #1eff00;
+  --rank-blue: #4aa3ff;
+  --rank-purple: #b56bff;
+  --rank-orange: #ff9a36;
+  --rank-pink: #ff72bd;
+  --rank-gold: #e5cc80;
 }
 body { background: radial-gradient(ellipse at top, var(--accent-tint-md), transparent 65%), var(--bg); }
 .card { border-radius: 18px; }
@@ -31,6 +45,28 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); 
   font-size: .76rem; line-height: 1.6;
 }
 .credential-hint strong { color: var(--text); font-weight: 500; }
+.rankings-settings {
+  margin: 18px 0 22px; padding: 16px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--input-bg); transition: border-color .15s, box-shadow .15s;
+}
+.rankings-settings[hidden] { display: none; }
+.rankings-settings.is-connected { border-color: var(--success-border); box-shadow: inset 3px 0 var(--success); }
+.rankings-heading { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 15px; }
+.rankings-heading > svg { width: 21px; height: 21px; color: var(--accent); flex: 0 0 auto; margin-top: 1px; }
+.rankings-heading strong, .rankings-connect-row strong { color: var(--text-bright); font-size: .82rem; }
+.rankings-heading p, .rankings-connect-row p, .field-help, .rankings-api-setup p {
+  margin: 4px 0 0; color: var(--text-dim); font-size: .7rem; line-height: 1.55;
+}
+.rankings-character-field { margin-bottom: 14px !important; }
+.rankings-connect-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rankings-connect-row > div { min-width: 0; }
+.rankings-connect-action { flex: 0 0 auto; min-height: 38px; padding: 9px 13px; color: #fff; background: var(--accent); font-size: .72rem; }
+.rankings-connect-action:hover:not(:disabled) { background: var(--accent-hover); }
+.rankings-api-setup { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text-dim); font-size: .7rem; }
+.rankings-api-setup[hidden] { display: none; }
+.rankings-api-setup summary { cursor: pointer; }
+.rankings-api-setup .field { margin: 12px 0 8px; }
+.rankings-api-setup code { display: block; padding: 9px; margin-top: 7px; border-radius: 7px; background: var(--surface); color: var(--accent); overflow-wrap: anywhere; }
 .desktop-runs #btn,
 .desktop-runs #incrementalFields { display: none !important; }
 .runs-panel { margin-top: 24px; font-size: .8rem; }
@@ -56,6 +92,28 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); 
 .run-date { color: var(--text-dim); font-size: .73rem; margin: 7px 0; line-height: 1.5; }
 .run-state { display: flex; align-items: center; gap: 5px; color: var(--text-dim); font-size: .72rem; line-height: 1.5; }
 .is-uploaded .run-state { color: var(--report-text); }
+.run-metrics { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.run-metric {
+  display: inline-flex; align-items: baseline; gap: 7px; min-width: 94px; padding: 8px 10px;
+  border: 1px solid currentColor; border-radius: 9px; background: var(--surface); color: var(--rank-grey);
+}
+.run-metric span { font-size: .66rem; font-weight: 500; text-transform: uppercase; letter-spacing: .07em; }
+.run-metric strong { margin-left: auto; font-size: .9rem; }
+.rank-grey { color: var(--rank-grey); }
+.rank-green { color: var(--rank-green); }
+.rank-blue { color: var(--rank-blue); }
+.rank-purple { color: var(--rank-purple); }
+.rank-orange { color: var(--rank-orange); }
+.rank-pink { color: var(--rank-pink); }
+.rank-gold { color: var(--rank-gold); }
+.rank-pending { color: var(--text-dim); }
+.rankings-pending-text { color: var(--text-dim); font-size: .7rem; line-height: 1.4; }
+.rankings-refresh {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; padding: 5px 7px; border-radius: 7px;
+  background: transparent; color: var(--accent); font: inherit; font-size: .68rem; cursor: pointer;
+}
+.rankings-refresh:hover { background: var(--accent-tint-md); }
+.rankings-refresh svg { width: 14px; height: 14px; }
 .report-action { background: var(--report-bg); color: var(--report-text); border-color: var(--success-border); }
 .report-action:hover { box-shadow: 0 0 0 2px var(--success-border); }
 .run-card .run-action { width: 100%; }

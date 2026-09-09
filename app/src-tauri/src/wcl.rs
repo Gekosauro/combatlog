@@ -58,6 +58,10 @@ impl std::error::Error for HttpStatus {}
 pub struct LoginUser {
     #[serde(rename = "userName")]
     pub user_name: Option<String>,
+    /// Characters already associated with the account. The exact object shape
+    /// is controlled by RPGLogs, so the UI normalizes these raw entries.
+    #[serde(default)]
+    pub characters: Vec<Value>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

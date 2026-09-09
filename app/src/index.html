@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>combatlog.dev</title>
+    <title>Log-O-Matic</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -143,11 +143,30 @@
         text-align: center;
         margin-bottom: 28px;
       }
+      .brand-lockup {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+      }
+      .brand-mascot {
+        width: 88px;
+        height: 88px;
+        object-fit: contain;
+        flex: 0 0 auto;
+        filter: drop-shadow(0 8px 16px rgba(117, 65, 195, 0.3));
+        animation: mascotFloat 4s ease-in-out infinite;
+      }
+      @keyframes mascotFloat {
+        0%, 100% { transform: translateY(0) rotate(-1deg); }
+        50% { transform: translateY(-4px) rotate(1deg); }
+      }
+      .brand-copy { text-align: left; }
       .header h1 {
         font-family: "Lexend", sans-serif;
         font-weight: 600;
-        font-size: 1.45rem;
-        letter-spacing: 0.02em;
+        font-size: 1.7rem;
+        letter-spacing: -0.025em;
         color: var(--text-bright);
       }
       .header h1 em {
@@ -160,7 +179,10 @@
         color: var(--text-dim);
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        margin-top: 6px;
+        margin-top: 5px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .brand-mascot { animation: none; }
       }
 
       .theme-toggle {
@@ -631,10 +653,14 @@
     <div class="card">
       <div class="card-body">
         <div class="header">
-          <h1>combatlog<em>.dev</em></h1>
-          <div class="sub">
-            a privacy conscious uploader for
-            <strong class="game-name">WARCRAFT LOGS</strong>
+          <div class="brand-lockup">
+            <img class="brand-mascot" src="./assets/log-o-matic-mascot.png" alt="" />
+            <div class="brand-copy">
+              <h1>Log<em>-O-Matic</em></h1>
+              <div class="sub">
+                SMART <strong class="game-name">WARCRAFT LOGS</strong> UPLOADER
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1152,7 +1178,7 @@
         connectRankingsBtn.disabled = true;
         connectRankingsBtn.textContent = "Waiting for browser…";
         rankingsStatus.textContent = "Authorize in your browser";
-        rankingsStatusDetail.textContent = "Return here after approving combatlog.dev on Warcraft Logs.";
+        rankingsStatusDetail.textContent = "Return here after approving Log-O-Matic on Warcraft Logs.";
         try {
           const token = await invoke("connect_rankings", { clientId });
           rankingsState.token = {

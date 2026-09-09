@@ -1,8 +1,8 @@
 [package]
 name = "combatlog"
-version = "0.4.8"
+version = "0.4.9"
 edition = "2021"
-description = "combatlog.dev — local WarcraftLogs uploader"
+description = "Log-O-Matic — smart Warcraft Logs uploader"
 default-run = "combatlog"
 
 [build-dependencies]

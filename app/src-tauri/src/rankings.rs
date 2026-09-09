@@ -135,7 +135,7 @@ async fn receive_code(listener: TcpListener, expected_state: &str) -> Result<Str
             respond(
                 &mut socket,
                 400,
-                "The authorization state did not match. Return to combatlog.dev and try again.",
+                "The authorization state did not match. Return to Log-O-Matic and try again.",
             )
             .await?;
             bail!("Warcraft Logs returned an invalid authorization state.");
@@ -153,7 +153,7 @@ async fn receive_code(listener: TcpListener, expected_state: &str) -> Result<Str
             .get("code")
             .map(|value| value.to_string())
             .context("Warcraft Logs did not return an authorization code")?;
-        respond(&mut socket, 200, "Warcraft Logs is connected to combatlog.dev. You can close this tab and return to the app.").await?;
+        respond(&mut socket, 200, "Warcraft Logs is connected to Log-O-Matic. You can close this tab and return to the app.").await?;
         return Ok(code);
     }
 }
@@ -161,7 +161,7 @@ async fn receive_code(listener: TcpListener, expected_state: &str) -> Result<Str
 async fn respond(socket: &mut tokio::net::TcpStream, status: u16, message: &str) -> Result<()> {
     let label = if status == 200 { "OK" } else { "Error" };
     let body = format!(
-        "<!doctype html><meta charset=\"utf-8\"><title>combatlog.dev</title>\
+        "<!doctype html><meta charset=\"utf-8\"><title>Log-O-Matic</title>\
          <style>body{{font:16px system-ui;background:#101014;color:#eee;display:grid;place-items:center;min-height:100vh;margin:0}}\
          main{{max-width:520px;padding:32px;border:1px solid #4d3479;border-radius:16px;background:#18151f}}h1{{color:#ad80fb}}</style>\
          <main><h1>{label}</h1><p>{message}</p></main>"

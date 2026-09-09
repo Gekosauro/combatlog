@@ -10,9 +10,9 @@ Supported websites:
 - [SWTORLogs](https://www.swtorlogs.com/)
 - [FellowshipLogs](https://www.fellowshiplogs.com/)
 
-## Desktop app
+## Log-O-Matic desktop app (World of Warcraft)
 
-This is the easiest option if you just want to upload logs from your own machine.
+Log-O-Matic scans a WoW combat log, keeps Mythic+ and raid runs separate, and lets you upload each run as its own Warcraft Logs report. It can also display the selected character's Parse/Key or Parse/iLvl percentiles.
 
 You can find the installer for your OS on the [Releases](../../releases) page:
 

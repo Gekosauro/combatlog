@@ -75,3 +75,4 @@ button:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); 
 .run-activity pre { max-height: 140px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 8px; font-size: .7rem; line-height: 1.6; color: var(--text-dim); }
 @media (max-width: 420px) { body { padding: 24px 12px; } .run-card { padding: 13px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+.run-capture-warning { color: #f0c674; font-size: .8rem; line-height: 1.5; margin: .5rem 0 0; }

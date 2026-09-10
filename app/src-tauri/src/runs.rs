@@ -15,6 +15,7 @@ pub struct Run {
     pub ended: Option<String>,
     pub duration_ms: Option<u64>,
     pub complete: bool,
+    pub missing_start: bool,
     #[serde(skip)] start: u64,
     #[serde(skip)] end: u64,
     #[serde(skip)] zone: String,
@@ -34,6 +35,8 @@ fn run_id(run: &Run, digest: u64) -> String {
 
 fn finish(runs: &mut Vec<Run>, active: &mut Option<Run>, digest: u64, closed: bool) {
     if let Some(mut run) = active.take() {
+        // A zone entry alone (or a reset END) is not evidence of a finished key.
+        if run.missing_start && !run.complete { return; }
         if run.kind == "raid" {
             if run.attempts == 0 { return; }
             run.complete = closed && !run.encounter_open;
@@ -43,7 +46,8 @@ fn finish(runs: &mut Vec<Run>, active: &mut Option<Run>, digest: u64, closed: bo
     }
 }
 
-/// Stream a fixed file-length snapshot. Never infer a run from a reset END.
+/// Stream a fixed file-length snapshot. Recover a missing START only from a
+/// Mythic+ zone entry followed by a successful END for that same zone.
 pub fn scan(path: &Path) -> Result<Vec<Run>> {
     let file = File::open(path).with_context(|| format!("opening {}", path.display()))?;
     let len = file.metadata()?.len();
@@ -66,6 +70,10 @@ pub fn scan(path: &Path) -> Result<Vec<Run>> {
         if let Some((stamp, event)) = line.trim_end().split_once("  ") {
             if let Some(c) = zone_re.captures(event) {
                 let difficulty: u32 = c[3].parse()?;
+                if active.as_ref().is_some_and(|r| r.kind == "mplus"
+                    && (r.zone != c[1] || difficulty != 8)) {
+                    finish(&mut runs, &mut active, digest, false);
+                }
                 // Modern Normal/Heroic/Mythic/LFR and legacy raid difficulties.
                 let raid = matches!(difficulty, 3 | 4 | 5 | 6 | 7 | 9 | 14 | 15 | 16 | 17);
                 let same_session = active.as_ref().is_some_and(|r|
@@ -78,11 +86,22 @@ pub fn scan(path: &Path) -> Result<Vec<Run>> {
                     digest = 0xcbf29ce484222325;
                     active = Some(Run { id: String::new(), name: c[2].into(), level: 0,
                         kind: "raid".into(), difficulty, zone: c[1].into(), started: stamp.into(),
-                        ended: None, duration_ms: None, complete: false, start: offset, end,
+                        ended: None, duration_ms: None, complete: false, missing_start: false, start: offset, end,
                         context: header.clone(), attempts: 0, encounter_open: false });
                 }
+                if difficulty == 8 && active.is_none() {
+                    digest = 0xcbf29ce484222325;
+                    active = Some(Run { id: String::new(), name: c[2].into(), level: 0,
+                        kind: "mplus".into(), difficulty, zone: c[1].into(), started: stamp.into(),
+                        ended: None, duration_ms: None, complete: false, missing_start: true,
+                        start: offset, end, context: header.clone(), attempts: 0, encounter_open: false });
+                }
             }
-            if event.starts_with("COMBAT_LOG_VERSION,") { header = line.clone(); }
+            if event.starts_with("COMBAT_LOG_VERSION,") {
+                header = line.clone();
+                zone.clear();
+                map.clear();
+            }
             if event.starts_with("ZONE_CHANGE,") { zone = line.clone(); }
             if event.starts_with("MAP_CHANGE,") { map = line.clone(); }
             if let Some(c) = start_re.captures(event) {
@@ -91,7 +110,7 @@ pub fn scan(path: &Path) -> Result<Vec<Run>> {
                 active = Some(Run { id: String::new(), name: c[1].into(), level: c[4].parse()?,
                     kind: "mplus".into(), difficulty: 8, attempts: 0, encounter_open: false,
                     zone: c[2].into(), started: stamp.into(), ended: None, duration_ms: None,
-                    complete: false, start: offset, end,
+                    complete: false, missing_start: false, start: offset, end,
                     context: format!("{header}{zone}{map}") });
             }
             if let Some(run) = active.as_mut() {
@@ -109,8 +128,11 @@ pub fn scan(path: &Path) -> Result<Vec<Run>> {
                         run.complete = fields.get(2) == Some(&"1");
                         run.ended = Some(stamp.into());
                         run.duration_ms = fields.get(4).and_then(|v| v.parse().ok());
-                        run.id = run_id(run, digest);
-                        runs.push(active.take().unwrap());
+                        if run.missing_start {
+                            run.level = fields.get(3).and_then(|v| v.parse().ok()).unwrap_or(0);
+                            run.complete &= run.level > 0 && run.duration_ms.is_some_and(|ms| ms > 0);
+                        }
+                        finish(&mut runs, &mut active, digest, false);
                     }
                 }
             }
@@ -143,6 +165,87 @@ pub fn extract(path: &Path, id: &str) -> Result<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn fixture(events: &[&str]) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!("missing-start-{}.txt", rand::random::<u64>()));
+        let data = events.iter().enumerate()
+            .map(|(i, event)| format!("9/10/2026 10:00:{i:02}.0000  {event}\n")).collect::<String>();
+        std::fs::write(&path, data).unwrap();
+        path
+    }
+
+    #[test]
+    fn finished_key_without_start_is_recovered_and_extracted_separately() {
+        // Minimal reproduction of the September 10 log; no player/combat data.
+        let path = fixture(&[
+            "COMBAT_LOG_VERSION,22", "ZONE_CHANGE,2521,\"Ruby Life Pools\",23",
+            "MAP_CHANGE,2095,\"Ruby Life Pools\",0,0,0,0",
+            "CHALLENGE_MODE_END,2521,0,0,0",
+            "CHALLENGE_MODE_START,\"Ruby Life Pools\",2521,399,10,[]",
+            "CHALLENGE_MODE_END,2521,1,10,1291167",
+            "ZONE_CHANGE,0,\"Silvermoon City\",0", "COMBAT_LOG_VERSION,22",
+            "ZONE_CHANGE,1762,\"Kings' Rest\",8", "MAP_CHANGE,1004,\"Kings' Rest\",0,0,0,0",
+            "ENCOUNTER_START,2139,\"The Golden Serpent\",8,5,1762",
+            // Repeated metadata must not drop the previously recorded part.
+            "ZONE_CHANGE,1762,\"Kings' Rest\",8",
+            "ENCOUNTER_END,2139,\"The Golden Serpent\",8,5,1,161602",
+            "CHALLENGE_MODE_END,1762,1,12,1566288",
+        ]);
+        let runs = scan(&path).unwrap();
+        assert_eq!(runs.len(), 2);
+        assert!(runs.iter().all(|r| r.complete));
+        assert!(!runs[0].missing_start);
+        assert_eq!(runs[1].name, "Kings' Rest");
+        assert_eq!(runs[1].level, 12);
+        assert_eq!(runs[1].duration_ms, Some(1566288));
+        assert!(runs[1].missing_start);
+        let raw = extract(&path, &runs[1].id).unwrap().0;
+        assert!(raw.starts_with("9/10/2026 10:00:07.0000  COMBAT_LOG_VERSION,22\n"));
+        assert!(raw.contains("ENCOUNTER_START,2139"));
+        assert!(raw.contains("CHALLENGE_MODE_END,1762,1,12,1566288"));
+        assert!(!raw.contains("Ruby"));
+        assert!(!raw.contains("Silvermoon"));
+        assert!(!raw.contains("CHALLENGE_MODE_START")); // Never invent missing events.
+        let original = std::fs::read_to_string(&path).unwrap();
+        std::fs::write(&path, original.replace('\n', "\r\n")).unwrap();
+        assert_eq!(scan(&path).unwrap()[1].id, runs[1].id);
+        assert!(extract(&path, &runs[1].id).is_ok());
+        std::fs::write(&path, original + "9/10/2026 11:10:00.0000  ZONE_CHANGE,0,\"City\",0\n").unwrap();
+        assert_eq!(scan(&path).unwrap()[1].id, runs[1].id);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn orphan_end_reset_open_key_and_wrong_zone_do_not_create_runs() {
+        for events in [
+            vec!["CHALLENGE_MODE_END,1762,1,12,60000"],
+            vec!["ZONE_CHANGE,1762,\"Kings' Rest\",23", "CHALLENGE_MODE_END,1762,1,12,60000"],
+            vec!["ZONE_CHANGE,1762,\"Kings' Rest\",8"],
+            vec!["ZONE_CHANGE,1762,\"Kings' Rest\",8", "CHALLENGE_MODE_END,1762,0,0,0"],
+            vec!["ZONE_CHANGE,1762,\"Kings' Rest\",8", "CHALLENGE_MODE_END,2521,1,12,60000"],
+            vec!["ZONE_CHANGE,1762,\"Kings' Rest\",8", "ZONE_CHANGE,0,\"City\",0", "CHALLENGE_MODE_END,1762,1,12,60000"],
+            vec!["ZONE_CHANGE,1762,\"Kings' Rest\",8", "CHALLENGE_MODE_END,1762,1,0,0"],
+        ] {
+            let path = fixture(&events);
+            assert!(scan(&path).unwrap().is_empty(), "{events:?}");
+            let _ = std::fs::remove_file(path);
+        }
+    }
+
+    #[test]
+    fn real_start_supersedes_tentative_zone_and_keeps_existing_report_id() {
+        let events = ["ZONE_CHANGE,1762,\"Kings' Rest\",8",
+            "CHALLENGE_MODE_START,\"Kings' Rest\",1762,249,12,[]",
+            "CHALLENGE_MODE_END,1762,1,12,60000"];
+        let path = fixture(&events);
+        let runs = scan(&path).unwrap();
+        assert_eq!(runs.len(), 1);
+        assert!(!runs[0].missing_start);
+        let original = std::fs::read_to_string(&path).unwrap();
+        std::fs::write(&path, original.lines().skip(1).collect::<Vec<_>>().join("\n") + "\n").unwrap();
+        assert_eq!(scan(&path).unwrap()[0].id, runs[0].id);
+        let _ = std::fs::remove_file(path);
+    }
+
     #[test]
     fn raid_wipes_and_kills_stay_together_and_reentry_is_separate() {
         let path = std::env::temp_dir().join(format!("raids-{}.txt", rand::random::<u64>()));

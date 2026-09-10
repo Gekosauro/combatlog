@@ -65,6 +65,11 @@ export function installRuns({ invoke, listen, getFile, setBusy, showError }) {
         : "Incomplete / abandoned — upload unavailable") : record ? "Uploaded" : "Not uploaded by this app";
       if (record) { row.classList.add("is-uploaded"); label(state, "Uploaded", "check"); }
       info.append(name, date, state); row.append(info);
+      if (run.missingStart) {
+        const warning = document.createElement("p"); warning.className = "run-capture-warning";
+        warning.textContent = "Start not recorded — this report includes only the available part of the run. Time shown is the first recorded entry.";
+        info.append(warning);
+      }
       if (record) {
         const link = document.createElement("button"); link.type = "button"; link.className = "run-action report-action"; label(link, "Open report", "open");
         link.onclick = () => invoke("open_url", { url: record.url }).catch(e => showError(String(e)));

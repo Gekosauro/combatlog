@@ -12,7 +12,7 @@ Supported websites:
 
 ## Log-O-Matic desktop app (World of Warcraft)
 
-Log-O-Matic scans a WoW combat log, keeps Mythic+ and raid runs separate, and lets you upload each run as its own Warcraft Logs report. It can also display the selected character's Parse/Key or Parse/iLvl percentiles.
+Log-O-Matic scans a WoW combat log, keeps Mythic+ and raid runs separate, and lets you upload each run as its own Warcraft Logs report. Successful uploads stay in local history with an Open report action. No API Client ID or separate OAuth connection is required.
 
 You can find the installer for your OS on the [Releases](../../releases) page:
 

@@ -16,10 +16,6 @@ on:
 
 jobs:
   build:
-    env:
-      # OAuth public client IDs are safe to embed. When unset, the app lets a
-      # tester paste a Client ID locally instead.
-      WCL_CLIENT_ID: ${{ vars.WCL_CLIENT_ID }}
     strategy:
       fail-fast: false
       matrix:
@@ -65,6 +61,9 @@ jobs:
 
       - name: Stage Node sidecar + parser-harness
         run: bash app/scripts/prepare-sidecar.sh ${{ matrix.target }}
+
+      - name: Test desktop frontend
+        run: node --test app/tests/*.cjs
 
       - name: Install tauri-cli
         uses: taiki-e/install-action@v2

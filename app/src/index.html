@@ -736,41 +736,6 @@
               </div>
             </div>
 
-            <section class="rankings-settings" aria-labelledby="rankingsTitle">
-              <div class="rankings-heading">
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M4 19V9m6 10V5m6 14v-7m4 7H2" />
-                </svg>
-                <div>
-                  <strong id="rankingsTitle">Performance rankings</strong>
-                  <p>Show your Warcraft Logs percentiles beside every uploaded run.</p>
-                </div>
-              </div>
-              <div class="field rankings-character-field">
-                <label for="performanceCharacter">Your character</label>
-                <input id="performanceCharacter" list="characterOptions" type="text"
-                  autocomplete="off" placeholder="Name-Realm-Region" />
-                <datalist id="characterOptions"></datalist>
-                <p class="field-help">Choose one of the characters linked to your Warcraft Logs account, or enter it as Name-Realm-Region.</p>
-              </div>
-              <div class="rankings-connect-row">
-                <div>
-                  <strong id="rankingsStatus">Rankings not connected</strong>
-                  <p id="rankingsStatusDetail">Connect once to read your report rankings.</p>
-                </div>
-                <button type="button" id="connectRankingsBtn" class="run-action rankings-connect-action">Connect rankings</button>
-              </div>
-              <details class="rankings-api-setup" id="rankingsApiSetup">
-                <summary>API connection setup</summary>
-                <div class="field">
-                  <label for="rankingsClientId">Warcraft Logs API Client ID</label>
-                  <input id="rankingsClientId" type="text" autocomplete="off" />
-                </div>
-                <p>Create a Warcraft Logs OAuth client using this exact redirect URI:</p>
-                <code id="rankingsRedirectUri">http://127.0.0.1:48173/oauth/callback</code>
-              </details>
-            </section>
-
             <div class="field" id="uploadFields">
               <label>Combat Log</label>
               <div class="dropzone" id="dropzone">
@@ -863,81 +828,15 @@
       const currentGame = "warcraft";
       document.body.dataset.game = currentGame;
 
-      const STORE_KEY = "wcl_upload_creds";
-      const RANKINGS_KEY = "combatlog_rankings_v1";
-      let rankingsState = { clientId: "", characters: {}, token: null };
+      // Retire only the removed feature's local token and character cache.
+      // Login credentials and successful-upload history keep their existing keys.
       try {
-        const stored = JSON.parse(localStorage.getItem(RANKINGS_KEY));
-        if (stored && typeof stored === "object") rankingsState = {
-          clientId: typeof stored.clientId === "string" ? stored.clientId : "",
-          characters: stored.characters && typeof stored.characters === "object" ? stored.characters : {},
-          token: stored.token && typeof stored.token === "object" ? stored.token : null,
-        };
+        localStorage.removeItem("combatlog_rankings_v1");
+        for (const key of Object.keys(localStorage)) {
+          if (key.startsWith("wcl_characters_warcraft_")) localStorage.removeItem(key);
+        }
       } catch {}
-      let bundledRankingsClientId = "";
-      const performanceCharacter = document.getElementById("performanceCharacter");
-      const characterOptions = document.getElementById("characterOptions");
-      const rankingsClientId = document.getElementById("rankingsClientId");
-      const rankingsStatus = document.getElementById("rankingsStatus");
-      const rankingsStatusDetail = document.getElementById("rankingsStatusDetail");
-      const connectRankingsBtn = document.getElementById("connectRankingsBtn");
-      const rankingsApiSetup = document.getElementById("rankingsApiSetup");
-      const rankingsSettings = document.querySelector(".rankings-settings");
-      if (!isTauri) rankingsSettings.hidden = true;
-
-      function persistRankings() {
-        localStorage.setItem(RANKINGS_KEY, JSON.stringify(rankingsState));
-      }
-      const accountKey = () => (document.getElementById("email").value || (readCreds() || {}).email || "").trim().toLowerCase();
-      const activeClientId = () => (bundledRankingsClientId || rankingsClientId.value || rankingsState.clientId || "").trim();
-      function validRankingsToken() {
-        const token = rankingsState.token;
-        return token && typeof token.accessToken === "string" && token.accessToken &&
-          token.clientId === activeClientId() && Number(token.expiresAt) > Date.now() + 30_000 ? token.accessToken : null;
-      }
-      function updateRankingsUI() {
-        const clientId = activeClientId();
-        const token = validRankingsToken();
-        rankingsApiSetup.hidden = !!bundledRankingsClientId;
-        rankingsClientId.value = bundledRankingsClientId || rankingsState.clientId || "";
-        connectRankingsBtn.disabled = !clientId;
-        connectRankingsBtn.textContent = token ? "Reconnect" : "Connect rankings";
-        rankingsStatus.textContent = token ? "Rankings connected" : "Rankings not connected";
-        rankingsStatusDetail.textContent = token
-          ? "New uploads will automatically receive their percentiles."
-          : clientId ? "Connect once to read your report rankings."
-          : "Open API connection setup and enter a Client ID.";
-        rankingsSettings.classList.toggle("is-connected", !!token);
-      }
-      function loadSelectedCharacter() {
-        performanceCharacter.value = rankingsState.characters[accountKey()] || "";
-      }
-      function characterLabel(raw) {
-        if (typeof raw === "string") return raw.trim();
-        if (!raw || typeof raw !== "object") return "";
-        const name = raw.name || raw.characterName || raw.label || "";
-        const server = raw.serverName || raw.realm || raw.server?.name || raw.server?.slug || "";
-        const region = raw.regionName || raw.region?.name || raw.region?.slug || raw.server?.region?.name || raw.server?.region?.slug || "";
-        if (!name) return "";
-        const cleanRegion = String(region).toUpperCase();
-        return [name, server, cleanRegion].filter(Boolean).join("-");
-      }
-      function populateCharacters(items) {
-        const labels = [...new Set((items || []).map(characterLabel).filter(Boolean))];
-        characterOptions.replaceChildren(...labels.map(value => {
-          const option = document.createElement("option"); option.value = value; return option;
-        }));
-      }
-      performanceCharacter.addEventListener("change", () => {
-        rankingsState.characters[accountKey()] = performanceCharacter.value.trim();
-        persistRankings();
-        document.dispatchEvent(new CustomEvent("rankings-settings-changed"));
-      });
-      rankingsClientId.addEventListener("input", () => {
-        rankingsState.clientId = rankingsClientId.value.trim();
-        rankingsState.token = null;
-        persistRankings(); updateRankingsUI();
-      });
+      const STORE_KEY = "wcl_upload_creds";
       function readCreds() {
         try {
           return JSON.parse(localStorage.getItem(STORE_KEY)) || null;
@@ -988,10 +887,6 @@
         localStorage.removeItem(STORE_KEY);
         document.getElementById("email").value = "";
         document.getElementById("password").value = "";
-        rankingsState.token = null;
-        try { persistRankings(); } catch {}
-        loadSelectedCharacter();
-        updateRankingsUI();
         const guildField = document.getElementById("guildField");
         if (guildField) {
           guildField.style.display = "none";
@@ -1008,8 +903,6 @@
       // Keep the cache key scoped so it remains compatible with earlier builds.
       const guildCacheKey = (email) =>
         "wcl_guilds_" + currentGame + "_" + email;
-      const characterCacheKey = (email) =>
-        "wcl_characters_" + currentGame + "_" + email;
       let guildReqId = 0;
 
       function currentCreds() {
@@ -1059,7 +952,7 @@
         const resp = await fetch("/guilds", { method: "POST", body: fd });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || "Failed to log in");
-        return { userName: data.userName || null, guilds: data.guilds || [], characters: data.characters || [] };
+        return { userName: data.userName || null, guilds: data.guilds || [] };
       }
 
       async function loadGuilds() {
@@ -1075,19 +968,13 @@
           cached = JSON.parse(localStorage.getItem(cacheKey));
         } catch {}
         populateGuilds(Array.isArray(cached) ? cached : []);
-        let cachedCharacters = [];
-        try { cachedCharacters = JSON.parse(localStorage.getItem(characterCacheKey(email))); } catch {}
-        populateCharacters(Array.isArray(cachedCharacters) ? cachedCharacters : []);
-        loadSelectedCharacter();
 
         const reqId = ++guildReqId;
         try {
-          const { guilds, characters } = await fetchGuilds(email, password);
+          const { guilds } = await fetchGuilds(email, password);
           if (reqId !== guildReqId) return; // a newer request superseded this one
           localStorage.setItem(cacheKey, JSON.stringify(guilds));
-          localStorage.setItem(characterCacheKey(email), JSON.stringify(characters || []));
           populateGuilds(guilds);
-          populateCharacters(characters || []);
         } catch (err) {
           if (reqId === guildReqId)
             console.warn("Could not refresh guilds:", err);
@@ -1116,20 +1003,15 @@
         loginBtn.textContent = "Logging in…";
         const reqId = ++guildReqId;
         try {
-          const { userName, guilds, characters } = await fetchGuilds(email, password);
+          const { userName, guilds } = await fetchGuilds(email, password);
           if (!userName) {
             showLoginError("Login failed — check your email and password.");
             return;
           }
           localStorage.setItem(guildCacheKey(email), JSON.stringify(guilds));
-          localStorage.setItem(characterCacheKey(email), JSON.stringify(characters || []));
           saveCreds();
           updateLoginUI();
-          if (reqId === guildReqId) {
-            populateGuilds(guilds);
-            populateCharacters(characters || []);
-            loadSelectedCharacter();
-          }
+          if (reqId === guildReqId) populateGuilds(guilds);
         } catch (err) {
           const msg = String((err && err.message) || err);
           showLoginError(
@@ -1160,41 +1042,6 @@
         if (rid) document.getElementById("region").value = rid;
       });
 
-      if (isTauri) {
-        try {
-          const config = await invoke("rankings_config");
-          bundledRankingsClientId = (config.clientId || "").trim();
-          document.getElementById("rankingsRedirectUri").textContent = config.redirectUri;
-        } catch (error) {
-          console.warn("Could not load rankings configuration:", error);
-        }
-      }
-      rankingsClientId.value = rankingsState.clientId || "";
-      loadSelectedCharacter();
-      updateRankingsUI();
-      connectRankingsBtn.addEventListener("click", async () => {
-        const clientId = activeClientId();
-        if (!isTauri || !clientId) return;
-        connectRankingsBtn.disabled = true;
-        connectRankingsBtn.textContent = "Waiting for browser…";
-        rankingsStatus.textContent = "Authorize in your browser";
-        rankingsStatusDetail.textContent = "Return here after approving Log-O-Matic on Warcraft Logs.";
-        try {
-          const token = await invoke("connect_rankings", { clientId });
-          rankingsState.token = {
-            accessToken: token.accessToken,
-            expiresAt: Date.now() + Math.max(60, Number(token.expiresIn) || 3600) * 1000,
-            clientId,
-          };
-          rankingsState.clientId = bundledRankingsClientId ? rankingsState.clientId : clientId;
-          persistRankings();
-          document.dispatchEvent(new CustomEvent("rankings-settings-changed"));
-        } catch (error) {
-          showError(String(error));
-        } finally {
-          updateRankingsUI();
-        }
-      });
       loadGuilds();
 
       function fmtSize(bytes) {
@@ -1566,19 +1413,9 @@
         const { installRuns } = await import("./runs-ui.js");
         installRuns({ invoke, listen, getFile: () => selected,
           showError,
-          getRankingsSettings: () => ({
-            accessToken: validRankingsToken(),
-            character: performanceCharacter.value.trim(),
-          }),
-          rankingsAuthExpired: () => {
-            rankingsState.token = null;
-            try { persistRankings(); } catch {}
-            updateRankingsUI();
-          },
           setBusy: (busy) => {
             incrementalBusy = busy;
             document.querySelectorAll("#form input, #form select, #form button").forEach(el => el.disabled = busy);
-            if (!busy) updateRankingsUI();
           }
         });
         document.getElementById("incrementalFields").style.setProperty("display", "none", "important");

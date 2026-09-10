@@ -1,7 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod incremental;
-mod rankings;
 mod runs;
 mod parser;
 mod wcl;
@@ -54,7 +53,6 @@ struct GuildOption {
 struct LoginResult {
     user_name: Option<String>,
     guilds: Vec<GuildOption>,
-    characters: Vec<serde_json::Value>,
 }
 
 #[derive(Serialize)]
@@ -131,11 +129,6 @@ async fn fetch_guilds(
         .await
         .map_err(|e| format!("{e:#}"))?;
     let user_name = login.user.as_ref().and_then(|u| u.user_name.clone());
-    let characters = login
-        .user
-        .as_ref()
-        .map(|user| user.characters.clone())
-        .unwrap_or_default();
     let items = login.guild_select_items.unwrap_or_default();
     let guilds = items
         .into_iter()
@@ -152,30 +145,7 @@ async fn fetch_guilds(
             })
         })
         .collect();
-    Ok(LoginResult { user_name, guilds, characters })
-}
-
-#[tauri::command]
-fn rankings_config() -> rankings::RankingsConfig {
-    rankings::config()
-}
-
-#[tauri::command]
-async fn connect_rankings(app: AppHandle, client_id: String) -> Result<rankings::OAuthToken, String> {
-    rankings::authorize(&app, &client_id)
-        .await
-        .map_err(|error| format!("{error:#}"))
-}
-
-#[tauri::command]
-async fn fetch_report_rankings(
-    access_token: String,
-    report_code: String,
-    character: String,
-) -> Result<rankings::ReportPercentiles, String> {
-    rankings::fetch_report(&access_token, &report_code, &character)
-        .await
-        .map_err(|error| format!("{error:#}"))
+    Ok(LoginResult { user_name, guilds })
 }
 
 /// start upload
@@ -313,9 +283,6 @@ fn main() {
             scan_runs,
             open_url,
             fetch_guilds,
-            rankings_config,
-            connect_rankings,
-            fetch_report_rankings,
             start_upload,
             set_titlebar_theme
         ])

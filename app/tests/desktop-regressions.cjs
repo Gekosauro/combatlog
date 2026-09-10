@@ -4,7 +4,7 @@ const { readFileSync, existsSync } = require("node:fs");
 const { resolve } = require("node:path");
 const vm = require("node:vm");
 const root = resolve(__dirname, "..");
-const read = path => readFileSync(resolve(root, path), "utf8");
+const read = path => readFileSync(resolve(root, path), "utf8").replace(/\r\n/g, "\n");
 const html = read("src/index.html");
 const runs = read("src/runs-ui.js");
 

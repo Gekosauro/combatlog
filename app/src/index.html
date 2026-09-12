@@ -318,6 +318,42 @@
         color: var(--text-dim);
         font-weight: 300;
       }
+      .guild-label-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 6px;
+      }
+      .field .guild-label-row label {
+        margin-bottom: 0;
+      }
+      .guild-refresh {
+        border: 0;
+        padding: 0;
+        background: transparent;
+        color: var(--accent);
+        font-family: "Lexend", sans-serif;
+        font-size: 0.72rem;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .guild-refresh:hover:not(:disabled) {
+        text-decoration: underline;
+      }
+      .guild-refresh:disabled {
+        color: var(--text-dim);
+        cursor: wait;
+      }
+      .guild-status {
+        margin: 7px 0 0;
+        color: var(--text-dim);
+        font-size: 0.72rem;
+        line-height: 1.45;
+      }
+      .guild-status[data-state="error"] {
+        color: var(--error);
+      }
 
       .row {
         display: flex;
@@ -711,8 +747,14 @@
 
           <div id="uploadSection" style="display: none">
             <div class="field" id="guildField">
-              <label for="guild">Upload to</label>
+              <div class="guild-label-row">
+                <label for="guild">Upload to</label>
+                <button type="button" id="refreshGuilds" class="guild-refresh">
+                  ↻ Refresh guilds
+                </button>
+              </div>
               <select id="guild" name="guild"></select>
+              <p id="guildStatus" class="guild-status" role="status"></p>
             </div>
 
             <div class="row field">
@@ -828,12 +870,14 @@
       const currentGame = "warcraft";
       document.body.dataset.game = currentGame;
 
-      // Retire only the removed feature's local token and character cache.
+      // Retire removed OAuth data and cached guild destinations. Guilds must be
+      // fetched live so an obsolete destination is never presented as current.
       // Login credentials and successful-upload history keep their existing keys.
       try {
         localStorage.removeItem("combatlog_rankings_v1");
         for (const key of Object.keys(localStorage)) {
-          if (key.startsWith("wcl_characters_warcraft_")) localStorage.removeItem(key);
+          if (key.startsWith("wcl_characters_warcraft_") || key.startsWith("wcl_guilds_"))
+            localStorage.removeItem(key);
         }
       } catch {}
       const STORE_KEY = "wcl_upload_creds";
@@ -900,10 +944,15 @@
 
       const guildField = document.getElementById("guildField");
       const guildSel = document.getElementById("guild");
-      // Keep the cache key scoped so it remains compatible with earlier builds.
-      const guildCacheKey = (email) =>
-        "wcl_guilds_" + currentGame + "_" + email;
+      const guildStatus = document.getElementById("guildStatus");
+      const refreshGuilds = document.getElementById("refreshGuilds");
       let guildReqId = 0;
+
+      function setGuildStatus(message, state = "") {
+        guildStatus.textContent = message;
+        if (state) guildStatus.dataset.state = state;
+        else delete guildStatus.dataset.state;
+      }
 
       function currentCreds() {
         const email =
@@ -961,25 +1010,26 @@
           guildField.style.display = "none";
           return;
         }
-
-        const cacheKey = guildCacheKey(email);
-        let cached = null;
-        try {
-          cached = JSON.parse(localStorage.getItem(cacheKey));
-        } catch {}
-        populateGuilds(Array.isArray(cached) ? cached : []);
-
         const reqId = ++guildReqId;
+        populateGuilds([]);
+        refreshGuilds.disabled = true;
+        setGuildStatus("Refreshing destinations from Warcraft Logs…");
         try {
           const { guilds } = await fetchGuilds(email, password);
           if (reqId !== guildReqId) return; // a newer request superseded this one
-          localStorage.setItem(cacheKey, JSON.stringify(guilds));
           populateGuilds(guilds);
+          setGuildStatus("Guilds are linked to your Warcraft Logs account, including guilds on alts.");
         } catch (err) {
-          if (reqId === guildReqId)
+          if (reqId === guildReqId) {
+            populateGuilds([]);
+            setGuildStatus("Could not refresh guilds. Log in again or check your Warcraft Logs guild membership.", "error");
             console.warn("Could not refresh guilds:", err);
+          }
+        } finally {
+          if (reqId === guildReqId) refreshGuilds.disabled = false;
         }
       }
+      refreshGuilds.addEventListener("click", loadGuilds);
 
       const loginBtn = document.getElementById("loginBtn");
       const loginError = document.getElementById("loginError");
@@ -1008,10 +1058,12 @@
             showLoginError("Login failed — check your email and password.");
             return;
           }
-          localStorage.setItem(guildCacheKey(email), JSON.stringify(guilds));
           saveCreds();
           updateLoginUI();
-          if (reqId === guildReqId) populateGuilds(guilds);
+          if (reqId === guildReqId) {
+            populateGuilds(guilds);
+            setGuildStatus("Guilds are linked to your Warcraft Logs account, including guilds on alts.");
+          }
         } catch (err) {
           const msg = String((err && err.message) || err);
           showLoginError(

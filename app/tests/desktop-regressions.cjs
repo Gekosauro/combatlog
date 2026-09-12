@@ -30,6 +30,7 @@ test("legacy OAuth cleanup preserves credentials, run history and unrelated data
   const entries = {
     combatlog_rankings_v1: '{"token":"old-token"}',
     wcl_characters_warcraft_test: '["Test-Realm-EU"]',
+    wcl_guilds_warcraft_test: '[{"id":123,"label":"Old Guild"}]',
     wcl_upload_creds: '{"email":"test@example.invalid"}',
     combatlog_run_history_v1: '{"run":{"url":"https://www.warcraftlogs.com/reports/TEST","rankings":{"parsePercent":80}}}',
     combatlog_incremental_upload_v2: '{"offset":100}',
@@ -37,15 +38,24 @@ test("legacy OAuth cleanup preserves credentials, run history and unrelated data
   };
   const before = { ...entries };
   Object.defineProperty(entries, "removeItem", { value(key) { delete entries[key]; } });
-  const cleanup = html.slice(html.indexOf("      // Retire only"), html.indexOf('      const STORE_KEY ='));
+  const cleanup = html.slice(html.indexOf("      // Retire removed OAuth data"), html.indexOf('      const STORE_KEY ='));
   assert.ok(cleanup.length > 0);
   vm.runInNewContext(cleanup, { localStorage: entries });
   assert.equal(entries.combatlog_rankings_v1, undefined);
   assert.equal(entries.wcl_characters_warcraft_test, undefined);
+  assert.equal(entries.wcl_guilds_warcraft_test, undefined);
   for (const key of ["wcl_upload_creds", "combatlog_run_history_v1", "combatlog_incremental_upload_v2", "theme"]) {
     assert.equal(entries[key], before[key]);
   }
   assert.doesNotThrow(() => vm.runInNewContext(cleanup, { localStorage: { removeItem() { throw Error("Storage blocked"); } } }));
+});
+
+test("guild destinations are refreshed live and stale cache is never used", () => {
+  assert.match(html, /id="refreshGuilds"/);
+  assert.match(html, /Refreshing destinations from Warcraft Logs/);
+  assert.match(html, /including guilds on alts/);
+  assert.match(html, /Could not refresh guilds/);
+  assert.doesNotMatch(html, /localStorage\.getItem\(cacheKey\)|guildCacheKey/);
 });
 
 test("separate upload loop and previous report links remain available", () => {

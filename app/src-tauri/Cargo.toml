@@ -1,6 +1,6 @@
 [package]
 name = "combatlog"
-version = "0.4.11"
+version = "0.4.12"
 edition = "2021"
 description = "Log-O-Matic — smart Warcraft Logs uploader"
 default-run = "combatlog"
